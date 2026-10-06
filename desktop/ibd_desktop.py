@@ -97,7 +97,8 @@ def main():
     api.window = webview.create_window(
         APP_NAME, url, js_api=api, width=1360, height=860, min_size=(900, 600)
     )
-    webview.start()
+    # unter Linux direkt GTK: sonst versucht pywebview auf KDE zuerst Qt
+    webview.start(gui="gtk" if sys.platform.startswith("linux") else None)
     httpd.shutdown()
 
 
