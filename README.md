@@ -152,10 +152,13 @@ python3 desktop/ibd_desktop.py            # eigenes Fenster
 python3 desktop/ibd_desktop.py --browser  # ohne pywebview: im Browser
 ```
 
-Pakete (`.dmg`, Setup-`.exe`, `.tar.gz`) baut der Workflow
+Pakete (`.dmg`, Setup-`.exe`, AppImage, `.tar.gz`) baut der Workflow
 `.github/workflows/build-packages.yml`: Actions → „Pakete bauen" → Run
 workflow, oder einen Tag `v1.0.0` pushen – dann haengen die Dateien am
-Release. Lokal: `pyinstaller ibd_editor.spec`. Quelle aller Icons ist `assets/icon.svg`;
+Release. Lokal: `pyinstaller ibd_editor.spec`. Das AppImage
+(`packaging/build_appimage.sh`) bringt WebKitGTK samt Abhaengigkeiten mit und
+laeuft daher auch auf neueren Distributionen; das `.tar.gz` nutzt GTK/WebKit
+des Systems (`gir1.2-webkit2-4.1`). Quelle aller Icons ist `assets/icon.svg`;
 `python3 packaging/make_icons.py` erzeugt daraus `.png`, `.ico`, `.icns` und
 die Web-Icons (benoetigt `cairosvg` und `Pillow`).
 

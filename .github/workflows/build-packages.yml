@@ -1,8 +1,8 @@
 name: Pakete bauen
 
 # PyInstaller kann nicht über Plattformen hinweg bauen: die Windows-.exe muss
-# auf Windows entstehen, die .app/.dmg auf macOS, die .tar.gz auf Linux.
-# Dieser Workflow erledigt alle drei auf GitHubs Runnern.
+# auf Windows entstehen, die .app/.dmg auf macOS, die .tar.gz und das
+# AppImage auf Linux. Dieser Workflow erledigt alles auf GitHubs Runnern.
 #
 # Starten:  Actions → "Pakete bauen" → Run workflow
 #           (oder automatisch beim Pushen eines Tags v1.2.3)
@@ -84,7 +84,7 @@ jobs:
           path: dist/IBD-Editor.dmg
 
   linux:
-    name: Linux (.tar.gz)
+    name: Linux (.tar.gz + AppImage)
     # bewusst die ältere LTS: das Ergebnis läuft dann auch auf älteren Distributionen
     runs-on: ubuntu-22.04
     steps:
@@ -98,6 +98,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libgirepository1.0-dev libcairo2-dev pkg-config gir1.2-gtk-3.0 gir1.2-webkit2-4.1
+          # nur fürs AppImage: .pc-Dateien und Werkzeuge für linuxdeploy-plugin-gtk
+          sudo apt-get install -y libgtk-3-dev librsvg2-dev librsvg2-common dpkg-dev
           pip install "PyGObject<3.51"
 
       - name: Abhängigkeiten
@@ -107,6 +109,20 @@ jobs:
 
       - name: App bauen
         run: pyinstaller ibd_editor.spec --distpath build/linux/dist --workpath build/linux/work --noconfirm
+
+      # Das .tar.gz nutzt das GTK/WebKit des Zielsystems. Die libstdc++ von
+      # 22.04 im Paket würde dessen neuere Bibliotheken (z. B. ICU) brechen:
+      # "CXXABI_1.3.15 not found". Die des Zielsystems ist immer neu genug.
+      - name: libstdc++ aus dem Paket entfernen
+        run: find build/linux/dist/IBD-Editor \( -name 'libstdc++.so*' -o -name 'libgcc_s.so*' \) -print -delete
+
+      - name: AppImage erzeugen (bringt WebKitGTK selbst mit)
+        run: packaging/build_appimage.sh build/linux/dist/IBD-Editor dist/IBD-Editor-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: IBD-Editor-Linux-AppImage
+          path: dist/IBD-Editor-x86_64.AppImage
 
       - name: tar.gz erzeugen
         run: |
@@ -120,9 +136,47 @@ jobs:
           name: IBD-Editor-Linux
           path: dist/IBD-Editor-1.0.0-linux-x86_64.tar.gz
 
+  appimage-test:
+    name: AppImage-Test (Ubuntu 26.04)
+    # startet das AppImage auf einem neueren System als dem Build-System –
+    # genau dort ist das .tar.gz früher an der libstdc++ gescheitert
+    needs: linux
+    runs-on: ubuntu-latest
+    container: ubuntu:26.04
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: IBD-Editor-Linux-AppImage
+
+      # nur, was jeder Desktop ohnehin hat (X11, Mesa, Fontconfig, …) –
+      # alles Weitere muss das AppImage selbst mitbringen
+      - name: Minimales Desktop-System
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            xvfb xauth procps libgl1 libegl1 libgl1-mesa-dri libegl-mesa0 libgbm1 \
+            libfontconfig1 libharfbuzz0b libfribidi0 libx11-xcb1 libwayland-client0 fonts-dejavu-core
+
+      - name: Starten und prüfen
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          chmod +x IBD-Editor-x86_64.AppImage
+          xvfb-run -a ./IBD-Editor-x86_64.AppImage > app.log 2>&1 &
+          sleep 30
+          ok=1
+          pgrep -f 'usr/lib/ibd-editor/IBD-Editor' > /dev/null || { echo "::error::Die App läuft nicht mehr"; ok=0; }
+          pgrep -f WebKitWebProcess > /dev/null || { echo "::error::WebKitWebProcess wurde nicht gestartet"; ok=0; }
+          if grep -E "version .* not found|error while loading shared libraries|cannot open shared object|Unable to spawn|Traceback" app.log; then
+            echo "::error::Fehlermeldungen im Log"; ok=0
+          fi
+          echo "----- Log -----"; cat app.log
+          pkill -f 'usr/lib/ibd-editor/IBD-Editor' || true
+          [ "$ok" = 1 ]
+
   release:
     name: Release-Dateien anhängen
-    needs: [windows, macos, linux]
+    needs: [windows, macos, linux, appimage-test]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
@@ -148,6 +202,7 @@ jobs:
           hole 'IBD-Editor-Setup.exe'             'IBD-Editor-Setup.exe'
           hole 'IBD-Editor-windows-x86_64.zip'    'IBD-Editor-windows-x86_64.zip'
           hole 'IBD-Editor-*linux-x86_64.tar.gz'  'IBD-Editor-linux-x86_64.tar.gz'
+          hole 'IBD-Editor-x86_64.AppImage'       'IBD-Editor-x86_64.AppImage'
           ls -lh release
 
       - name: An das Release hängen

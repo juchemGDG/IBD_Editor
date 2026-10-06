@@ -1414,7 +1414,8 @@ function anyModalOpen() { return ['modal', 'help-modal', 'edit-modal', 'download
 const DOWNLOADS = [
   ['macOS',   'IBD-Editor.dmg',                 'Apple Silicon & Intel · .dmg'],
   ['Windows', 'IBD-Editor-Setup.exe',           'Installer · .exe'],
-  ['Linux',   'IBD-Editor-linux-x86_64.tar.gz', 'entpacken & starten · .tar.gz'],
+  ['Linux',   'IBD-Editor-x86_64.AppImage',     'ausführbar machen & starten · AppImage'],
+  ['Linux',   'IBD-Editor-linux-x86_64.tar.gz', 'nutzt GTK/WebKit des Systems · .tar.gz'],
 ];
 function showDownloads() {
   const list = byId('download-list'), ver = byId('download-version');
