@@ -125,6 +125,8 @@ index.html
 ibd.js
 ibd.css
 favicon.svg
+favicon-32.png
+apple-touch-icon.png
 .htaccess        <- versteckte Datei! im FTP-Programm sichtbar schalten
 ```
 
@@ -153,8 +155,9 @@ python3 desktop/ibd_desktop.py --browser  # ohne pywebview: im Browser
 Pakete (`.dmg`, Setup-`.exe`, `.tar.gz`) baut der Workflow
 `.github/workflows/build-packages.yml`: Actions → „Pakete bauen" → Run
 workflow, oder einen Tag `v1.0.0` pushen – dann haengen die Dateien am
-Release. Lokal: `pyinstaller ibd_editor.spec`. Icons (`assets/icon.ico`,
-`assets/icon.icns`) sind optional; Quelle ist `assets/icon.svg`.
+Release. Lokal: `pyinstaller ibd_editor.spec`. Quelle aller Icons ist `assets/icon.svg`;
+`python3 packaging/make_icons.py` erzeugt daraus `.png`, `.ico`, `.icns` und
+die Web-Icons (benoetigt `cairosvg` und `Pillow`).
 
 ## Einbettung in andere Web-Apps (`?embed=1`)
 
