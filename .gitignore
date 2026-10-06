@@ -1,0 +1,8 @@
+# Build-Artefakte der Paketierung (siehe packaging/README.md)
+.build-venv/
+build/linux/
+build/macos/
+build/windows/
+
+# Python-Cache
+__pycache__/

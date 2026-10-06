@@ -1,0 +1,2 @@
+# nur fuer die Desktop-Version; die Web-Version braucht nichts
+pywebview>=5.0

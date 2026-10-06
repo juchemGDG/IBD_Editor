@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0,
+        maximum-scale=1.0, user-scalable=no">
+  <title>IBD Editor – Informations-Blockdiagramm</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <!-- Cache-Buster: bei jedem Deploy hochzählen, sonst liefern Browser/Hosting alte ibd.js/ibd.css aus -->
+  <link rel="stylesheet" href="ibd.css?v=1">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ═══════ SIDEBAR ═══════ -->
+  <aside id="sidebar">
+    <div id="sidebar-header">
+      <span id="sidebar-title">IBD Editor</span>
+      <span id="sidebar-subtitle">Informations-Blockdiagramm-Designer</span>
+    </div>
+
+    <div class="section-label">BAUSTEINE</div>
+    <div id="palette"></div>
+
+    <div class="section-label">PFEILTYP</div>
+    <div id="kinds"></div>
+
+    <div id="grid-controls">
+      <label id="grid-toggle-label">
+        <input type="checkbox" id="toggle-grid" checked> Raster
+      </label>
+      <input type="number" id="grid-size" value="20" min="5" max="200" step="5">
+      <span class="muted">px</span>
+    </div>
+
+    <button id="btn-help-side" class="btn-help-side">Hilfe &amp; Notation</button>
+  </aside>
+  <div id="sidebar-overlay"></div>
+
+  <!-- ═══════ MAIN ═══════ -->
+  <main id="main">
+    <div id="topbar">
+      <button id="sidebar-toggle" title="Bausteine">☰</button>
+      <span id="breadcrumb">Informationsfluss</span>
+
+      <nav id="menubar">
+        <button id="btn-check" class="btn-menu btn-accent">Diagramm prüfen</button>
+        <span class="btn-group" role="group" aria-label="Rückgängig">
+          <button id="btn-undo" class="btn-menu" title="Rückgängig (Strg/⌘+Z)">↶</button>
+          <button id="btn-redo" class="btn-menu" title="Wiederholen (Strg/⌘+Y)">↷</button>
+        </span>
+        <span class="btn-group" role="group" aria-label="Schriftgröße">
+          <button id="btn-font-down" class="btn-menu" title="Schrift der markierten Bausteine verkleinern">A−</button>
+          <button id="btn-font-up"   class="btn-menu" title="Schrift der markierten Bausteine vergrößern">A+</button>
+        </span>
+        <span class="btn-group" role="group" aria-label="Zoom">
+          <button id="btn-zoom-out" class="btn-menu" title="Verkleinern">−</button>
+          <span id="zoom-label">100 %</span>
+          <button id="btn-zoom-in"  class="btn-menu" title="Vergrößern">+</button>
+          <button id="btn-zoom-fit" class="btn-menu" title="Ganzes Diagramm zeigen">Einpassen</button>
+        </span>
+        <button id="btn-new"   class="btn-menu">Neu</button>
+        <button id="btn-load"  class="btn-menu">Laden</button>
+        <button id="btn-save"  class="btn-menu">Speichern</button>
+        <button id="btn-png"   class="btn-menu">PNG export</button>
+        <button id="btn-jpg"   class="btn-menu">JPG export</button>
+        <button id="btn-svg"   class="btn-menu">SVG export</button>
+        <button id="btn-example" class="btn-menu">Beispiel</button>
+        <button id="btn-desktop" class="btn-menu">Desktop-Version</button>
+      </nav>
+      <div id="menu-overlay"></div>
+
+      <button id="btn-delete" class="btn-danger" title="Markierte Elemente löschen" disabled>🗑<span id="btn-delete-label"> Löschen</span></button>
+      <button id="menu-toggle" title="Menü">⋮</button>
+
+      <span id="status">Bereit</span>
+    </div>
+    <div id="canvas-container">
+      <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </main>
+
+</div><!-- #app -->
+
+<!-- ═══════ INFO / PRÜFERGEBNIS ═══════ -->
+<div id="modal">
+  <div id="modal-box">
+    <h2 id="modal-title"></h2>
+    <div id="modal-body"></div>
+    <div style="text-align:right">
+      <button id="modal-close">OK</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ HILFE ═══════ -->
+<div id="help-modal">
+  <div id="help-box" role="dialog" aria-labelledby="help-title">
+    <div id="help-head">
+      <h2 id="help-title">Hilfe &amp; Notation</h2>
+      <button id="help-close" title="Schließen (Esc)">✕</button>
+    </div>
+    <div id="help-body">
+      <section>
+        <h3>Leitfrage</h3>
+        <p>Wo kommt die Information her, wo geht sie hin? Jede Informationskette beginnt an einer Quelle und endet an einem Ziel: an einem Bauteil oder einer Variablen.</p>
+      </section>
+      <section>
+        <h3>Notation</h3>
+        <table class="legend" id="legend"></table>
+      </section>
+      <section>
+        <h3>Bausteine</h3>
+        <ul>
+          <li>Baustein aus der linken Leiste auf die Fläche <b>ziehen</b> – oder <b>antippen</b>, dann erscheint er in der Mitte.</li>
+          <li><b>Beschriften:</b> Doppelklick (iPad: doppelt tippen). Bei Variablen lassen sich dort auch <b>Liste [ ]</b> und <b>Rolle</b> einstellen.</li>
+          <li><b>Variablen gehören in eine eigene Funktion:</b> einfach in den blauen Kasten schieben. Wird die Funktion verschoben, wandert ihr Inhalt mit.</li>
+          <li><b>Größe:</b> Baustein markieren und den Griff rechts unten ziehen. Rechtsklick → „Größe automatisch“ stellt die Textgröße wieder her.</li>
+          <li><b>Schriftgröße:</b> Bausteine markieren, dann <b>A−</b> / <b>A+</b>.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Pfeile</h3>
+        <ul>
+          <li><b>Zeichnen:</b> am <b>Rand</b> eines Bausteins anfassen (blauer Punkt) und auf den Zielbaustein ziehen. Der Pfeil kann an jeder Stelle des Rands beginnen und enden.</li>
+          <li><b>Pfeiltyp:</b> wird passend zu den Bausteinen vorgeschlagen. Ändern: Pfeil markieren und links einen Typ wählen – oder Rechtsklick auf den Pfeil (iPad: lange tippen).</li>
+          <li><b>Beschriften:</b> Doppelklick auf den Pfeil. Jeder Pfeil trägt Bedeutung und Einheit.</li>
+          <li><b>Verlauf ändern:</b> markierten Pfeil an den runden Enden umhängen, am blauen Quadrat den Knick verschieben.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Auswählen &amp; Bearbeiten</h3>
+        <ul>
+          <li><b>Mehrfachauswahl:</b> Rahmen auf freier Fläche aufziehen oder <kbd>Shift</kbd>-Klick.</li>
+          <li>Kopieren <kbd>Strg/⌘</kbd>+<kbd>C</kbd> · Einfügen <kbd>Strg/⌘</kbd>+<kbd>V</kbd> · Duplizieren <kbd>Strg/⌘</kbd>+<kbd>D</kbd> · Alles <kbd>Strg/⌘</kbd>+<kbd>A</kbd></li>
+          <li>Rückgängig <kbd>Strg/⌘</kbd>+<kbd>Z</kbd> · Wiederholen <kbd>Strg/⌘</kbd>+<kbd>Y</kbd> · Löschen <kbd>Entf</kbd></li>
+          <li>Pfeiltasten verschieben die Auswahl (mit <kbd>Shift</kbd> pixelgenau).</li>
+          <li><b>Fläche verschieben:</b> Mausrad, mittlere Maustaste oder <kbd>Leertaste</kbd>+Ziehen; iPad: zwei Finger. Zoom: <kbd>Strg/⌘</kbd>+Mausrad bzw. zwei Finger spreizen.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Prüfen, Speichern, Export</h3>
+        <ul>
+          <li><b>Diagramm prüfen</b> kontrolliert das Diagramm nach den vier Prüfregeln und der Darstellungskonvention und markiert die betroffenen Stellen.</li>
+          <li><b>Die vier Prüfregeln:</b> (1) Jeder Pfeil hat Quelle und Ziel. (2) Was eine Verarbeitung benutzt, kommt als Pfeil an. (3) Was sie erzeugt oder verändert, verlässt sie als Pfeil. (4) Gestrichelt braucht eine Begründung.</li>
+          <li>Speichern/Laden als JSON-Datei, Export als PNG, JPG oder SVG.</li>
+          <li><b>Beispiel</b> lädt den Reaktionszeittester.</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ DOWNLOAD ═══════ -->
+<div id="download-modal">
+  <div id="download-box">
+    <h2>IBD Editor für den Desktop</h2>
+    <p id="download-intro">
+      Die Desktop-Version läuft ohne Internet in einem eigenen Fenster und
+      speichert Diagramme direkt auf dem Rechner. Funktionsumfang und
+      Dateiformat sind identisch zur Web-Version.
+    </p>
+    <div id="download-version"></div>
+    <div id="download-list"></div>
+    <p id="download-note">
+      macOS: Beim ersten Start Rechtsklick auf die App → „Öffnen“, da die App
+      nicht bei Apple notarisiert ist.
+    </p>
+    <div style="text-align:right">
+      <button id="download-close">Schließen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ BEARBEITEN ═══════ -->
+<div id="edit-modal">
+  <div id="edit-box">
+    <h2 id="edit-title"></h2>
+    <div id="edit-fields"></div>
+    <div id="edit-hint">Enter = OK · Shift+Enter = Zeilenumbruch · Esc = Abbrechen</div>
+    <div id="edit-buttons">
+      <button id="edit-cancel">Abbrechen</button>
+      <button id="edit-ok">OK</button>
+    </div>
+  </div>
+</div>
+
+<script src="ibd.js?v=1"></script>
+</body>
+</html>
