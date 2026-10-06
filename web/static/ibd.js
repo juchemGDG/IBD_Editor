@@ -1310,7 +1310,7 @@ function buildPalette() {
   pal.innerHTML = '';
   NODE_ORDER.forEach(type => {
     const T = NODE_TYPES[type];
-    const g = { id: -1, type, text: type === 'zone' ? '' : type === 'bauteil' ? 'LED' : type === 'funktion' ? 'def f()' : type === 'verarbeitung' ? 'f()' : 'wert', x: 2, y: 2, w: 66, h: 30, manual: true, fontSize: 10 };
+    const g = { id: -1, type, text: type === 'zone' ? '' : type === 'bauteil' ? 'Bauteil' : type === 'funktion' ? 'eigene\nFunktion' : type === 'verarbeitung' ? 'Funktion' : 'wert', x: 2, y: 2, w: 66, h: 30, manual: true, fontSize: 10 };
     const card = document.createElement('div');
     card.className = 'palette-card';
     card.innerHTML = `<svg class="palette-shape" width="70" height="34" viewBox="0 0 70 34">${nodeSVG(g)}</svg><div class="palette-text"><div class="palette-name">${esc(T.name)}</div><div class="palette-hint">${esc(T.hint)}</div></div>`;
