@@ -26,8 +26,8 @@ const NODE_TYPES = {
                   fill: '#FFDBB6', stroke: '#FF8000', text: 'Bauteil',     mono: false },
   verarbeitung: { name: 'Verarbeitung',    hint: 'fertige Funktion, Methode, Operation',
                   fill: '#E7E7E7', stroke: '#7F7F7F', text: 'adc.read()',  mono: true },
-  funktion:     { name: 'eigene Funktion', hint: 'mit def – Gültigkeitsbereich für Variablen',
-                  fill: '#DEE6EF', stroke: '#2A6099', text: 'def name()',  mono: true },
+  funktion:     { name: 'eigene Funktion', hint: 'selbst geschriebene Funktion (def, void, function …) – Gültigkeitsbereich für Variablen',
+                  fill: '#DEE6EF', stroke: '#2A6099', text: 'name()',      mono: true },
   variable:     { name: 'Variable',        hint: 'abgelegter Wert, optional mit Rolle',
                   fill: '#FFFFFF', stroke: '#3C3C3C', text: 'wert',        mono: true },
   zone:         { name: 'globale Zone',    hint: 'nur Festwerte und Bauteile',
@@ -38,7 +38,7 @@ const NODE_ORDER = ['bauteil', 'verarbeitung', 'funktion', 'variable', 'zone'];
 const ARROW_KINDS = {
   uebergabe: { name: 'Übergabewert',     hint: 'dunkel, schmal',
                color: '#3C3C3C', width: 1.8, head: 10, half: 4.5 },
-  rueckgabe: { name: 'Rückgabewert',     hint: 'blau, breit, Punkt = return',
+  rueckgabe: { name: 'Rückgabewert',     hint: 'blau, breit, Punkt = Rückgabe (return)',
                color: '#1F5F8B', width: 3.6, head: 13, half: 6.5, dot: 5.5, bold: true },
   signal:    { name: 'Bauteilsignal',    hint: 'orange, Bauteil ↔ Verarbeitung',
                color: '#FF8000', width: 2.2, head: 10, half: 5 },
@@ -704,7 +704,7 @@ function editNode(n) {
     { key: 'role', label: 'Rolle (optional)', value: n.role, list: ROLES, help: 'Prüfreihenfolge: Festwert? Zähler? Sammler? Merker? Sonst: Aktueller Wert.' },
   ];
   else if (n.type === 'funktion') fields = [
-    { key: 'text', label: 'Name, z. B. def messen()', value: n.text },
+    { key: 'text', label: 'Name, z. B. messen() oder def messen()', value: n.text },
     { key: 'desc', type: 'area', rows: 3, label: 'Kurzbeschreibung (optional)', value: n.desc },
   ];
   else fields = [{ key: 'text', type: n.type === 'zone' ? 'text' : 'area', label: 'Beschriftung', value: n.text }];
@@ -742,7 +742,7 @@ const RULES = {
   I03: ['warning', '1', 'Baustein ohne Pfeil'],
   I04: ['warning', '3', 'eigene Funktion: etwas kommt an, nichts geht hinaus'],
   I05: ['error',   '1', 'Rückgabewert mit falscher Quelle oder falschem Ziel'],
-  I06: ['error',   '3', 'Wert aus einer Verarbeitung in eine Variable ohne return'],
+  I06: ['error',   '3', 'Wert aus einer Verarbeitung in eine Variable ohne Rückgabewert'],
   I10: ['error',   '2', 'Pfeil von Variable zu Variable über Funktionsgrenzen'],
   I11: ['error',   'K', 'Variable außerhalb einer eigenen Funktion'],
   I12: ['error',   'K', 'Bauteil in einer eigenen Funktion'],
@@ -759,14 +759,14 @@ const RULES = {
   I32: ['warning', '4', 'gestrichelter Pfeil unnötig'],
   I40: ['error',   'B', 'Baustein ohne Beschriftung'],
   I41: ['warning', 'B', 'Pfeil ohne Beschriftung'],
-  I42: ['warning', 'B', 'def passt nicht zum Baustein'],
+  I42: ['warning', 'B', 'Schreibweise „def“ uneinheitlich oder passt nicht zum Baustein'],
   I43: ['error',   'B', 'Funktionsname doppelt'],
   I44: ['error',   'B', 'Variablenname im selben Bereich doppelt'],
   I45: ['warning', 'B', 'ungültiger Variablenname'],
   I46: ['warning', 'B', 'Festwert nicht in Großbuchstaben'],
   I47: ['error',   'K', 'Festwert wird verändert'],
   I48: ['warning', 'K', 'doppelter Pfeil'],
-  I49: ['warning', 'K', 'kein main() / Hauptprogramm'],
+  I49: ['warning', 'K', 'kein Hauptprogramm (main, setup/loop)'],
 };
 
 function evaluateDiagram(nodeMap, arrowMap) {
@@ -788,18 +788,24 @@ function evaluateInner(N, A) {
   A.forEach(a => { if (outg[a.src]) outg[a.src].push(a); if (inc[a.tgt]) inc[a.tgt].push(a); });
   const proc = n => n.type === 'verarbeitung' || n.type === 'funktion';
   const fname = n => (n.text || '').split('\n')[0].trim();
-  const bare = n => fname(n).replace(/^def\s+/, '').replace(/\(.*$/, '').trim();
-  const isMain = n => n.type === 'funktion' && /^(main|hauptprogramm)$/i.test(String(n.text || '').replace(/^\s*def\s+/, '').replace(/\(.*$/s, '').replace(/[\s-]+/g, ''));
+  const headName = n => { const h = fname(n).replace(/\(.*$/, '').trim();
+    return /^haupt[\s-]*programm$/i.test(h) ? h : (h.split(/\s+/).pop() || ''); };
+  const bare = n => headName(n);
+  const isMain = n => n.type === 'funktion' &&
+    (/^haupt[\s-]*programm$/i.test(String(n.text || '').replace(/\(.*$/s, '').trim())
+     || /^(main|hauptprogramm|setup|loop)$/i.test(headName(n)));
   const isConst = n => n.type === 'variable' && (/^festwert$/i.test(n.role || '') || /^[A-ZÄÖÜ][A-ZÄÖÜ0-9_]*$/.test(n.text || ''));
   const funcs = real.filter(n => n.type === 'funktion');
   const varsIn = f => real.filter(v => v.type === 'variable' && scope[v.id] === f.id);
 
   // ── B: Beschriftungen ──
   real.forEach(n => { if (!fname(n)) F('I40', `Ein Baustein „${NODE_TYPES[n.type].name}“ hat keine Beschriftung. Doppelklick zum Beschriften.`, [n.id]); });
-  funcs.forEach(n => {
-    if (fname(n) && !/^def\s/.test(fname(n)) && !isMain(n))
-      F('I42', `Die eigene Funktion ${shortName(n)} sollte mit „def“ gekennzeichnet sein, z. B. „def ${bare(n).replace(/\s+/g, '_') || 'name'}()“.`, [n.id]);
-  });
+  const hasDef = n => /^def\s/.test(fname(n));
+  if (funcs.some(hasDef))
+    funcs.forEach(n => {
+      if (fname(n) && !hasDef(n) && !isMain(n))
+        F('I42', `Die eigene Funktion ${shortName(n)} ist ohne „def“ geschrieben, andere Funktionen im Diagramm mit. Einheitlich schreiben, z. B. „def ${bare(n).replace(/\s+/g, '_') || 'name'}()“.`, [n.id]);
+    });
   real.filter(n => n.type === 'verarbeitung' && /^def\s/.test(fname(n))).forEach(n =>
     F('I42', `${shortName(n)} beginnt mit „def“, ist aber als fertige Verarbeitung (grau) gezeichnet. Eigene Funktionen sind blau.`, [n.id]));
   const seenF = {};
@@ -824,7 +830,7 @@ function evaluateInner(N, A) {
     real.filter(n => n.type === 'variable' && !scope[n.id] && !isConst(n)).forEach(n =>
       F('I11', `Die Variable ${shortName(n)} liegt in keiner eigenen Funktion. Global stehen nur Festwerte (GROSS geschrieben) und Bauteile.`, [n.id]));
     if (funcs.length > 1 && !funcs.some(isMain))
-      F('I49', 'Es gibt eigene Funktionen, aber kein „def main()“ bzw. Hauptprogramm, das sie aufruft.', []);
+      F('I49', 'Es gibt eigene Funktionen, aber kein Hauptprogramm, das sie aufruft. Das Hauptprogramm steht ebenfalls in einer Funktion (Python: main(), Arduino: setup() und loop()).', []);
   }
   real.forEach(n => {
     if (n.type === 'funktion') return;
@@ -866,12 +872,12 @@ function evaluateInner(N, A) {
       F('I47', `In den Festwert ${shortName(t)} führt ein Pfeil. Ein Festwert ändert sich nie.`, [t.id], [a.id]);
 
     if (a.kind === 'rueckgabe') {
-      if (!proc(s)) F('I05', `Der Rückgabewert beginnt an der Variablen ${shortName(s)}. Nur eine Verarbeitung oder Funktion gibt etwas zurück (return).`, ids, [a.id]);
+      if (!proc(s)) F('I05', `Der Rückgabewert beginnt an der Variablen ${shortName(s)}. Nur eine Verarbeitung oder Funktion gibt etwas zurück (Python: return).`, ids, [a.id]);
       else if (t.type === 'variable' && scope[t.id] === s.id) F('I17', `Der Rückgabewert von ${shortName(s)} landet in ${shortName(t)} – das ist eine Variable derselben Funktion. Ein Rückgabewert verlässt die Funktion.`, ids, [a.id]);
     }
     if (a.kind === 'uebergabe') {
       if (proc(s) && t.type === 'variable')
-        F('I06', `Von ${shortName(s)} führt ein Übergabewert in die Variable ${shortName(t)}. Was eine Verarbeitung liefert, ist ein Rückgabewert (blau, Punkt = return).`, ids, [a.id]);
+        F('I06', `Von ${shortName(s)} führt ein Übergabewert in die Variable ${shortName(t)}. Was eine Verarbeitung liefert, ist ein Rückgabewert (blau, Punkt = Rückgabe, in Python return).`, ids, [a.id]);
       if (s.type === 'variable' && t.type === 'variable' && scope[s.id] && scope[t.id] && scope[s.id] !== scope[t.id])
         F('I10', `Der Pfeil führt von ${shortName(s)} direkt zu ${shortName(t)} in einer anderen Funktion. Information wechselt die Funktion nur als Übergabewert hinein oder als Rückgabewert heraus.`, ids, [a.id]);
     }
@@ -906,7 +912,7 @@ function evaluateInner(N, A) {
         const cross = A.filter(a => own.has(a.src) !== own.has(a.tgt));
         const comesIn = cross.some(a => own.has(a.tgt)), goesOut = cross.some(a => own.has(a.src) || a.kind === 'liste' || a.kind === 'global');
         if (comesIn && !goesOut)
-          F('I04', `In ${shortName(n)} kommt Information an, aber nichts verlässt die Funktion: kein Rückgabewert, kein Bauteilsignal, keine veränderte Liste. Fehlt ein return?`, [n.id]);
+          F('I04', `In ${shortName(n)} kommt Information an, aber nichts verlässt die Funktion: kein Rückgabewert, kein Bauteilsignal, keine veränderte Liste. Fehlt die Rückgabe (Python: return)?`, [n.id]);
       }
     } else if (!touched(n)) {
       F('I03', n.type === 'variable' ? `Die Variable ${shortName(n)} wird nie benutzt – kein Pfeil hinein, keiner heraus.` : `Das Bauteil ${shortName(n)} ist mit nichts verbunden.`, [n.id]);
@@ -1383,17 +1389,17 @@ function showModal(title, body, html) {
 function showHelp() {
   const leg = byId('legend');
   if (leg && !leg.innerHTML) {
-    const demo = { bauteil: 'LED', verarbeitung: 'f()', funktion: 'def f()', variable: 'wert' };
+    const demo = { bauteil: 'LED', verarbeitung: 'f()', funktion: 'messen()', variable: 'wert' };
     const text = {
       bauteil: 'Informationsquelle (Taster, Sensor) oder -ziel (LED, Display, Konsole).',
       verarbeitung: 'Fertige Funktion, Methode oder Operation (z. B. > 2000). Aufgerufenes steht neben dem Aufrufer, nie darin.',
-      funktion: 'Mit def gekennzeichnet. Nur sie ist ein Gültigkeitsbereich: Nur in ihr stehen Variablen.',
+      funktion: 'Selbst geschrieben (Python: def, C/Java: Typ und Name, JavaScript: function). Nur sie ist ein Gültigkeitsbereich: Nur in ihr stehen Variablen.',
       variable: 'Ein abgelegter Wert. Name und optional Rolle im Kasten; Listen mit [ ].',
       uebergabe: 'Jede Information, die eine Verarbeitung benutzt, kommt als Pfeil an.',
-      rueckgabe: 'Punkt am Anfang = return. Braucht ein Ziel: eine Variable oder eine weitere Verarbeitung.',
+      rueckgabe: 'Punkt am Anfang = Rückgabe (Python: return). Braucht ein Ziel: eine Variable oder eine weitere Verarbeitung.',
       signal: 'Direkt zwischen Bauteil und Verarbeitung. Bauteile sind keine Variablen.',
       global: 'Zwischen eigener Funktion und Variable, an Übergabe und Rückgabe vorbei. Braucht eine Begründung.',
-      liste: 'Eine Funktion verändert eine übergebene Liste, auch ohne return.',
+      liste: 'Eine Funktion verändert eine übergebene Liste, auch ohne Rückgabe.',
     };
     let h = '';
     Object.keys(demo).forEach(t => {

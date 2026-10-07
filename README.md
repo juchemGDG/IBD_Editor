@@ -15,14 +15,14 @@ Notation und Pruefregeln folgen dem Konzept „Informationsfluss in der
 |---|---|---|
 | Bauteil | orange, eckig | Informationsquelle (Taster, Sensor) oder -ziel (LED, Display, Konsole) |
 | Verarbeitung | grau, abgerundet | fertige Funktion, Methode oder Operation |
-| eigene Funktion | blau, abgerundet, `def` | einziger Gueltigkeitsbereich: nur in ihr stehen Variablen |
+| eigene Funktion | blau, abgerundet (`def`, `void`, `function` …) | einziger Gueltigkeitsbereich: nur in ihr stehen Variablen |
 | Variable | doppelter Rand | abgelegter Wert, optional mit Rolle; Listen mit `[ ]` |
 | globale Zone | gestrichelter Rahmen | nur Festwerte und Bauteile |
 
 | Pfeil | Darstellung | Bedeutung |
 |---|---|---|
 | Uebergabewert | dunkel, schmal | was eine Verarbeitung benutzt |
-| Rueckgabewert | blau, breit, Punkt am Anfang | `return` – braucht ein Ziel |
+| Rueckgabewert | blau, breit, Punkt am Anfang | Rueckgabe (Python: `return`) – braucht ein Ziel |
 | Bauteilsignal | orange | direkt zwischen Bauteil und Verarbeitung |
 | globaler Zugriff | gestrichelt | an Uebergabe und Rueckgabe vorbei – braucht eine Begruendung |
 | veraenderte Liste | blau, breit, zwei Spitzen | Funktion veraendert eine uebergebene Liste |
@@ -61,7 +61,7 @@ Darstellungskonvention (K) und Beschriftungen (B).
 | `I03` | Hinweis | 1 | Baustein ohne Pfeil / Variable wird nie benutzt |
 | `I05` | Fehler | 1 | Rueckgabewert beginnt nicht an einer Verarbeitung/Funktion |
 | `I10` | Fehler | 2 | Pfeil von Variable zu Variable ueber Funktionsgrenzen |
-| `I04` | Hinweis | 3 | In eine eigene Funktion kommt etwas hinein, nichts verlaesst sie (fehlt `return`?) |
+| `I04` | Hinweis | 3 | In eine eigene Funktion kommt etwas hinein, nichts verlaesst sie (fehlt die Rueckgabe, in Python `return`?) |
 | `I06` | Fehler | 3 | Verarbeitung → Variable als Uebergabewert statt Rueckgabewert |
 | `I15` | Fehler | 3 | „veraenderte Liste" an einer Variablen, die keine Liste ist |
 | `I16` | Fehler | 3 | „veraenderte Liste" ohne beteiligte Funktion |
@@ -78,10 +78,10 @@ Darstellungskonvention (K) und Beschriftungen (B).
 | `I22` | Fehler | K | Bauteilsignal ohne Bauteil |
 | `I47` | Fehler | K | In einen Festwert fuehrt ein Pfeil |
 | `I48` | Hinweis | K | derselbe Pfeil doppelt |
-| `I49` | Hinweis | K | mehrere eigene Funktionen, aber kein `main()`/Hauptprogramm |
+| `I49` | Hinweis | K | mehrere eigene Funktionen, aber kein Hauptprogramm (`main`, `setup`/`loop`) |
 | `I40` | Fehler | B | Baustein ohne Beschriftung |
 | `I41` | Hinweis | B | Pfeil ohne Beschriftung (Bauteilsignale ausgenommen) |
-| `I42` | Hinweis | B | eigene Funktion ohne `def` / graue Verarbeitung mit `def` |
+| `I42` | Hinweis | B | `def` uneinheitlich (nur wenn andere Funktionen es nutzen) / graue Verarbeitung mit `def` |
 | `I43` | Fehler | B | Funktionsname doppelt |
 | `I44` | Fehler | B | Variablenname im selben Gueltigkeitsbereich doppelt |
 | `I45` | Hinweis | B | ungueltiger Variablenname |
@@ -94,7 +94,7 @@ Bewusste Festlegungen:
   eine eigene Funktion gibt.
 - Als **Festwert** gilt eine Variable mit Rolle „Festwert" oder einem Namen
   ganz in Grossbuchstaben.
-- Als **Hauptprogramm** gilt `def main()` oder ein Kasten „Hauptprogramm".
+- Als **Hauptprogramm** gilt eine eigene Funktion `main`, `hauptprogramm`, `setup` oder `loop` (mit oder ohne Typ davor) oder ein Kasten „Hauptprogramm".
 - Was das Diagramm nicht zeigt, kann die Pruefung nicht finden – etwa eine
   Funktion, die im Code heimlich eine globale Variable liest. Pruefregel 2
   bleibt deshalb Aufgabe der Lernenden; der Editor prueft nur, ob das
@@ -107,6 +107,26 @@ Regel: Eintrag in `RULES`, Pruefung in `evaluateInner`, Testfall in
 ```bash
 node tests/test_rules.js     # Beispiele aus dem Konzept als Regressionstest
 ```
+
+## Sprachunabhaengigkeit
+
+Der Editor liest keinen Code; die Beschriftungen sind frei. Geprueft werden nur
+Kaesten und Pfeile. Python bleibt das Unterrichtsbeispiel.
+
+| Begriff | Python | C/C++/Java | Arduino | JavaScript |
+|---|---|---|---|---|
+| Hauptprogramm | `def main()` | `int main()` | `setup()` und `loop()` | `function main()` |
+| eigene Funktion | `def messen()` | `float messen()` | `float messen()` | `function messen()` |
+| Rueckgabewert | `return` | `return` | `return` | `return` |
+| veraenderte Liste | Liste als Argument | Array/Referenz | Array | Array |
+| Festwert | `MAX = 10` | `const`/`final` | `const`/`#define` | `const MAX = 10` |
+
+- **Arduino:** Zustand ueber `loop()`-Durchlaeufe steht als `static`-Variable in
+  `loop()` (lokal, passt zur Regel) oder als globale Variable (gestrichelter
+  Pfeil mit Begruendung, Pruefregel 4). Globale Variablen sind also nicht
+  zwingend.
+- `def` wird nicht verlangt; `I42` betrifft nur uneinheitliche Schreibweise.
+- Objektorientierung ist (noch) nicht gezeichnet.
 
 ## Start
 

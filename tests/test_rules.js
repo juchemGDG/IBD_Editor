@@ -102,5 +102,31 @@ reset();
   node('variable', 'x', 20, 130); }
 check('Bauteil und Verarbeitung in einer Funktion', ['I03', 'I03', 'I03', 'I03', 'I12', 'I13']);
 
+// Sprachunabhängigkeit
+reset();
+{ node('funktion', 'void setup()', 0, 0, 200, 120); node('funktion', 'void loop()', 300, 0, 200, 120); node('funktion', 'float mittelwert(int n)', 600, 0, 200, 120); }
+check('Arduino: setup/loop, kein I49, kein I42', ['I03', 'I03', 'I03']);
+
+reset();
+{ node('funktion', 'int main()', 0, 0, 200, 120); const w = node('variable', 'wert', 20, 50, 160, 40);
+  const f = node('funktion', 'float messen()', 300, 0, 200, 120); arrow(f, w, 'rueckgabe', 'Messwert'); }
+check('C: int main() und float messen()', []);
+
+reset();
+{ node('funktion', 'def main()', 0, 0, 200, 120); node('funktion', 'def messen()', 300, 0, 200, 120); node('funktion', 'rechnen()', 600, 0, 200, 120); }
+check('uneinheitliches def', ['I03', 'I03', 'I03', 'I42']);
+
+reset();
+{ node('funktion', 'messen()', 0, 0, 200, 120); node('funktion', 'rechnen()', 300, 0, 200, 120); }
+check('ohne Hauptprogramm', ['I03', 'I03', 'I49']);
+
+reset();
+{ node('funktion', 'void loop()', 0, 0, 200, 120); node('funktion', 'int loop()', 300, 0, 200, 120); }
+check('Funktionsname ohne Typ doppelt', ['I03', 'I03', 'I43']);
+
+reset();
+{ node('funktion', 'Funktion hauptprogramm()', 0, 0, 200, 120); node('funktion', 'Funktion messen()', 300, 0, 200, 120); }
+check('Pseudocode: Funktion hauptprogramm()', ['I03', 'I03']);
+
 console.log(failed ? `\n${failed} Test(s) fehlgeschlagen` : '\nalle Tests bestanden');
 process.exit(failed ? 1 : 0);
