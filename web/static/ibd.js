@@ -689,7 +689,11 @@ function openEdit(title, fields, cb) {
   setTimeout(() => { first.focus(); if (first.select) first.select(); }, 30);
 }
 function closeEdit(ok) {
+  // Tastatur schließen; iOS schiebt die Seite beim Fokussieren nach oben
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   byId('edit-modal').style.display = 'none';
+  window.scrollTo(0, 0);
+  resetPointers();
   const cb = editCb; editCb = null;
   if (ok && cb) cb();
 }
@@ -1106,9 +1110,20 @@ function arrowHandleHit(x, y) {
   return null;
 }
 
+// Vergessene Zeiger zurücksetzen. iPad/Safari liefert nicht immer ein
+// pointerup – z. B. wenn ein Doppeltipp den Textdialog öffnet und die
+// Bildschirmtastatur erscheint. Ein übrig gebliebener Zeiger ließ jede
+// weitere Berührung als zweiten Finger (Zoomen) gelten.
+function resetPointers() {
+  pointers.clear(); pinch = null; drag = null; spaceDown = false;
+  cancelLongPress();
+}
+
 function pointerDown(e) {
   closeCtxMenu();
   if (e.pointerType === 'mouse' && e.button === 2) return;   // Kontextmenü
+  // primär = erster Finger auf dem Glas: alle gemerkten Zeiger sind veraltet
+  if (e.isPrimary) { pointers.clear(); pinch = null; }
   stage.setPointerCapture(e.pointerId);
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   if (pointers.size === 2) {           // zwei Finger: verschieben und zoomen
@@ -1123,7 +1138,13 @@ function pointerDown(e) {
 
   // Doppeltipp/Doppelklick
   const now = Date.now();
-  if (now - lastTap.t < 350 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 14) { lastTap.t = 0; dblClick(x, y); return; }
+  if (now - lastTap.t < 350 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 14) {
+    lastTap.t = 0;
+    // öffnet ggf. den Textdialog – das zugehörige pointerup kommt dann evtl. nie
+    pointers.delete(e.pointerId);
+    if (stage.hasPointerCapture(e.pointerId)) stage.releasePointerCapture(e.pointerId);
+    dblClick(x, y); return;
+  }
   lastTap = { t: now, x: e.clientX, y: e.clientY };
   if (e.pointerType !== 'mouse') startLongPress(e.clientX, e.clientY, x, y);
 
@@ -1513,6 +1534,9 @@ function init() {
   stage.addEventListener('pointermove', pointerMove);
   stage.addEventListener('pointerup', pointerUp);
   stage.addEventListener('pointercancel', pointerUp);
+  stage.addEventListener('lostpointercapture', e => pointers.delete(e.pointerId));
+  window.addEventListener('blur', resetPointers);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) resetPointers(); });
   stage.addEventListener('pointerleave', () => { if (!drag && hoverAnchor) { hoverAnchor = null; redraw(); } });
   stage.addEventListener('contextmenu', e => { e.preventDefault(); const [x, y] = worldPt(e); contextAt(e.clientX, e.clientY, x, y); });
   stage.addEventListener('wheel', e => {
