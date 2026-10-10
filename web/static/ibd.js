@@ -666,8 +666,10 @@ function reverseArrow(a) {
 }
 
 // ── Bearbeiten-Dialog ────────────────────────────────────────
-let editCb = null;
+let editCb = null, editOpenedAt = 0;
 function openEdit(title, fields, cb) {
+  resetPointerState();                 // kein Zeiger-Rest darf den Dialog überleben
+  editOpenedAt = Date.now();
   byId('edit-title').textContent = title;
   const box = byId('edit-fields');
   box.innerHTML = fields.map(f => {
@@ -693,6 +695,9 @@ function closeEdit(ok) {
   const cb = editCb; editCb = null;
   if (ok && cb) cb();
 }
+// Knopf-Klicks: Das iPad schickt nach dem Doppeltipp noch ein synthetisches Klick-Ereignis
+// an die Stelle unter dem Finger – also mitten in den eben geöffneten Dialog. Das ignorieren wir.
+function closeEditByButton(ok) { if (Date.now() - editOpenedAt < 400) return; closeEdit(ok); }
 function editOpen() { return byId('edit-modal').style.display === 'flex'; }
 
 function editNode(n) {
@@ -1084,8 +1089,21 @@ function exampleDiagram() {
 // ════════════════════════════════════════════════════════════
 // Zeiger-Bedienung (Maus, Stift, Finger)
 // ════════════════════════════════════════════════════════════
+// pointers: aktuell aufliegende Zeiger. Jeder Eintrag merkt sich Typ, Startpunkt und
+// -zeit, damit am Ende erkannt wird, ob es ein reiner Tipp war (tap).
+// Wichtig für das iPad: Ein Zeiger darf nie "hängen bleiben". Fehlt ein pointerup
+// (z. B. weil sich beim Doppeltipp ein Dialog unter dem Finger öffnet), würde jede
+// weitere Berührung als Zwei-Finger-Geste gelten – dann ginge nur noch Zoomen.
 const pointers = new Map();
-let pinch = null, lastTap = { t: 0, x: 0, y: 0 }, longPress = null, spaceDown = false;
+let pinch = null, lastTap = { t: 0, x: 0, y: 0 }, pendingDbl = null, lastDblAt = 0, longPress = null, spaceDown = false;
+
+// Gesamten Zeiger-Zustand verwerfen (Dialog öffnet sich, Fenster verliert den Fokus, …).
+function resetPointerState() {
+  pointers.clear();
+  pinch = null; pendingDbl = null; lastTap = { t: 0, x: 0, y: 0 };
+  cancelLongPress();
+  drag = null;
+}
 
 function gripHit(x, y) {
   if (selNodes.size !== 1 || selArrow) return null;
@@ -1109,23 +1127,39 @@ function arrowHandleHit(x, y) {
 function pointerDown(e) {
   closeCtxMenu();
   if (e.pointerType === 'mouse' && e.button === 2) return;   // Kontextmenü
-  stage.setPointerCapture(e.pointerId);
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  if (pointers.size === 2) {           // zwei Finger: verschieben und zoomen
+  // Selbstheilung: Ein neuer Primärzeiger kann nur entstehen, wenn kein Zeiger dieses
+  // Typs mehr aufliegt. Alles, was noch in `pointers` steht, ist also ein Überbleibsel
+  // eines verlorenen pointerup/pointercancel und wird verworfen.
+  if (e.isPrimary) {
+    for (const [id, p] of pointers) if (p.type === e.pointerType) pointers.delete(id);
+    if (!pointers.size) { pinch = null; pendingDbl = null; drag = null; cancelLongPress(); }
+  }
+  try { stage.setPointerCapture(e.pointerId); } catch (_) { /* Zeiger schon wieder weg */ }
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType, sx: e.clientX, sy: e.clientY, t0: Date.now(), tap: true });
+  if (pointers.size >= 2) {            // zwei Finger: verschieben und zoomen
     cancelLongPress();
-    drag = null;
-    const [a, b] = [...pointers.values()];
-    pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+    pointers.forEach(p => { p.tap = false; });
+    pendingDbl = null; lastTap.t = 0;
+    if (pointers.size === 2) {
+      drag = null;
+      const [a, b] = [...pointers.values()];
+      pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), cx: (a.x + b.x) / 2, cy: (a.y + b.y) / 2 };
+    }
     return;
   }
   const [x, y] = worldPt(e);
   if ((e.pointerType === 'mouse' && e.button === 1) || spaceDown) { drag = { type: 'pan', cx: e.clientX, cy: e.clientY, vx: view.x, vy: view.y }; return; }
 
-  // Doppeltipp/Doppelklick
-  const now = Date.now();
-  if (now - lastTap.t < 350 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 14) { lastTap.t = 0; dblClick(x, y); return; }
-  lastTap = { t: now, x: e.clientX, y: e.clientY };
-  if (e.pointerType !== 'mouse') startLongPress(e.clientX, e.clientY, x, y);
+  // Doppeltipp/Doppelklick: erkannt wird er beim zweiten Aufsetzen, ausgeführt aber erst
+  // beim Loslassen. Öffnet sich der Dialog schon bei aufliegendem Finger, geht auf dem
+  // iPad das pointerup verloren (siehe oben). lastTap wird nur von echten Tipps gesetzt.
+  const touchy = e.pointerType !== 'mouse';
+  if (Date.now() - lastTap.t < (touchy ? 450 : 350) && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < (touchy ? 28 : 14)) {
+    lastTap.t = 0;
+    pendingDbl = { id: e.pointerId, x, y };
+    return;
+  }
+  if (touchy) startLongPress(e.clientX, e.clientY, x, y);
 
   const g = gripHit(x, y);
   if (g) { drag = { type: 'resize', id: g.id, moved: false }; return; }
@@ -1160,7 +1194,11 @@ function pointerDown(e) {
 }
 
 function pointerMove(e) {
-  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const pt = pointers.get(e.pointerId);
+  if (pt) {
+    pt.x = e.clientX; pt.y = e.clientY;
+    if (pt.tap && Math.hypot(e.clientX - pt.sx, e.clientY - pt.sy) > 10) pt.tap = false;   // wurde gezogen: kein Tipp
+  }
   if (pinch && pointers.size >= 2) {
     const [a, b] = [...pointers.values()];
     const d = Math.hypot(a.x - b.x, a.y - b.y), cx = (a.x + b.x) / 2, cy = (a.y + b.y) / 2;
@@ -1231,10 +1269,20 @@ function pointerMove(e) {
 }
 
 function pointerUp(e) {
+  const pt = pointers.get(e.pointerId);
+  if (!pt) return;                     // fremder oder bereits beendeter Zeiger (Handler ist mehrfach angebunden)
   pointers.delete(e.pointerId);
   cancelLongPress();
-  if (pinch) { if (pointers.size < 2) pinch = null; drag = null; return; }
+  if (pinch) { if (pointers.size < 2) pinch = null; drag = null; lastTap.t = 0; return; }
+  // Echter Tipp: kurz, kaum bewegt, nicht abgebrochen, nicht Teil einer Mehrfinger-Geste.
+  const isTap = pt.tap && e.type === 'pointerup' && Date.now() - pt.t0 < 500 && Math.hypot(e.clientX - pt.sx, e.clientY - pt.sy) < 10;
+  if (pendingDbl && pendingDbl.id === e.pointerId) {   // zweiter Tipp eines Doppeltipps: jetzt ausführen
+    const dd = pendingDbl; pendingDbl = null; lastTap.t = 0;
+    if (isTap) { lastDblAt = Date.now(); dblClick(dd.x, dd.y); }
+    return;
+  }
   const d = drag; drag = null;
+  lastTap = isTap && !(d && d.type === 'conn' && d.over) ? { t: Date.now(), x: e.clientX, y: e.clientY } : { t: 0, x: 0, y: 0 };
   if (!d) return;
   if (d.type === 'band') {
     const x0 = Math.min(d.x0, d.x1), x1 = Math.max(d.x0, d.x1), y0 = Math.min(d.y0, d.y1), y1 = Math.max(d.y0, d.y1);
@@ -1304,7 +1352,11 @@ function contextAt(cx, cy, x, y) {
 }
 function startLongPress(cx, cy, x, y) {
   cancelLongPress();
-  longPress = { cx, cy, timer: setTimeout(() => { longPress = null; drag = null; contextAt(cx, cy, x, y); }, 600) };
+  longPress = { cx, cy, timer: setTimeout(() => {
+    longPress = null; drag = null;
+    pointers.forEach(p => { p.tap = false; });        // langes Drücken ist kein Tipp
+    contextAt(cx, cy, x, y);
+  }, 600) };
 }
 function cancelLongPress() { if (longPress) { clearTimeout(longPress.timer); longPress = null; } }
 
@@ -1511,8 +1563,16 @@ function init() {
   buildPalette();
   stage.addEventListener('pointerdown', pointerDown);
   stage.addEventListener('pointermove', pointerMove);
-  stage.addEventListener('pointerup', pointerUp);
-  stage.addEventListener('pointercancel', pointerUp);
+  // pointerup/-cancel am Fenster: fängt auch Zeiger ab, deren Ende nicht bis zur Zeichenfläche
+  // kommt. pointerUp ignoriert fremde Zeiger und ist mehrfach aufrufbar.
+  window.addEventListener('pointerup', pointerUp);
+  window.addEventListener('pointercancel', pointerUp);
+  stage.addEventListener('lostpointercapture', pointerUp);
+  stage.addEventListener('touchend', e => {      // nach einem Doppeltipp kein synthetisches Klick-Ereignis mehr
+    if (Date.now() - lastDblAt < 600 && e.cancelable) e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('blur', () => { resetPointerState(); redraw(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { resetPointerState(); redraw(); } });
   stage.addEventListener('pointerleave', () => { if (!drag && hoverAnchor) { hoverAnchor = null; redraw(); } });
   stage.addEventListener('contextmenu', e => { e.preventDefault(); const [x, y] = worldPt(e); contextAt(e.clientX, e.clientY, x, y); });
   stage.addEventListener('wheel', e => {
@@ -1545,8 +1605,8 @@ function init() {
   on('help-close', 'click', closeHelp);
   on('modal-close', 'click', () => { byId('modal').style.display = 'none'; });
   on('download-close', 'click', () => { byId('download-modal').style.display = 'none'; });
-  on('edit-ok', 'click', () => closeEdit(true));
-  on('edit-cancel', 'click', () => closeEdit(false));
+  on('edit-ok', 'click', () => closeEditByButton(true));
+  on('edit-cancel', 'click', () => closeEditByButton(false));
   on('edit-modal', 'keydown', e => {
     if (e.key === 'Escape') { e.preventDefault(); closeEdit(false); }
     else if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !e.metaKey && !e.isComposing) { e.preventDefault(); closeEdit(true); }
