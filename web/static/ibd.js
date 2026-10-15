@@ -38,7 +38,7 @@ const NODE_ORDER = ['bauteil', 'verarbeitung', 'funktion', 'variable', 'zone'];
 const ARROW_KINDS = {
   uebergabe: { name: 'Übergabewert',     hint: 'dunkel, schmal',
                color: '#3C3C3C', width: 1.8, head: 10, half: 4.5 },
-  rueckgabe: { name: 'Ergebnis',          hint: 'blau, breit, Punkt = Ergebnis (Zuweisung oder return)',
+  rueckgabe: { name: 'Ergebnis',          hint: 'blau, breit, Punkt = Ergebnis (bei Funktionen: return)',
                color: '#1F5F8B', width: 3.6, head: 13, half: 6.5, dot: 5.5, bold: true },
   signal:    { name: 'Bauteilsignal',    hint: 'orange, Bauteil ↔ Verarbeitung',
                color: '#FF8000', width: 2.2, head: 10, half: 5 },
@@ -877,12 +877,12 @@ function evaluateInner(N, A) {
       F('I47', `In den Festwert ${shortName(t)} führt ein Pfeil. Ein Festwert ändert sich nie.`, [t.id], [a.id]);
 
     if (a.kind === 'rueckgabe') {
-      if (!proc(s)) F('I05', `Das Ergebnis beginnt an der Variablen ${shortName(s)}. Nur eine Verarbeitung oder Funktion liefert ein Ergebnis (bei einer Funktion: return).`, ids, [a.id]);
+      if (!proc(s)) F('I05', `Das Ergebnis beginnt an der Variablen ${shortName(s)}. Nur eine Verarbeitung oder Funktion erzeugt ein Ergebnis.`, ids, [a.id]);
       else if (t.type === 'variable' && scope[t.id] === s.id) F('I17', `Das Ergebnis von ${shortName(s)} landet in ${shortName(t)} – das ist eine Variable derselben Funktion. Das Ergebnis einer Funktion verlässt sie (return).`, ids, [a.id]);
     }
     if (a.kind === 'uebergabe') {
       if (proc(s) && t.type === 'variable')
-        F('I06', `Von ${shortName(s)} führt ein Übergabewert in die Variable ${shortName(t)}. Was eine Verarbeitung liefert, ist ein Ergebnis (blau, Punkt am Anfang; bei einer Funktion return, sonst Zuweisung).`, ids, [a.id]);
+        F('I06', `Von ${shortName(s)} führt ein Übergabewert in die Variable ${shortName(t)}. Was eine Verarbeitung erzeugt, ist ein Ergebnis (blau, Punkt).`, ids, [a.id]);
       if (s.type === 'variable' && t.type === 'variable' && scope[s.id] && scope[t.id] && scope[s.id] !== scope[t.id])
         F('I10', `Der Pfeil führt von ${shortName(s)} direkt zu ${shortName(t)} in einer anderen Funktion. Information wechselt die Funktion nur als Übergabewert hinein oder als Ergebnis (return) heraus.`, ids, [a.id]);
     }
@@ -917,7 +917,7 @@ function evaluateInner(N, A) {
         const cross = A.filter(a => own.has(a.src) !== own.has(a.tgt));
         const comesIn = cross.some(a => own.has(a.tgt)), goesOut = cross.some(a => own.has(a.src) || a.kind === 'liste' || a.kind === 'global');
         if (comesIn && !goesOut)
-          F('I04', `In ${shortName(n)} kommt Information an, aber nichts verlässt die Funktion: kein Ergebnis, kein Bauteilsignal, keine veränderte Liste. Fehlt das Ergebnis (return)?`, [n.id]);
+          F('I04', `In ${shortName(n)} kommt Information an, aber nichts verlässt die Funktion: kein Ergebnis, kein Bauteilsignal, keine veränderte Liste. Fehlt die Rückgabe (Python: return)?`, [n.id]);
       }
     } else if (!touched(n)) {
       F('I03', n.type === 'variable' ? `Die Variable ${shortName(n)} wird nie benutzt – kein Pfeil hinein, keiner heraus.` : `Das Bauteil ${shortName(n)} ist mit nichts verbunden.`, [n.id]);
@@ -1448,7 +1448,7 @@ function showHelp() {
       funktion: 'Selbst geschrieben (Python: def, C/Java: Typ und Name, JavaScript: function). Nur sie ist ein Gültigkeitsbereich: Nur in ihr stehen Variablen.',
       variable: 'Ein abgelegter Wert. Name und optional Rolle im Kasten; Listen mit [ ].',
       uebergabe: 'Jede Information, die eine Verarbeitung benutzt, kommt als Pfeil an.',
-      rueckgabe: 'Punkt am Anfang = Ergebnis einer Verarbeitung (Zuweisung) oder Funktion (return). Braucht ein Ziel: eine Variable oder eine weitere Verarbeitung.',
+      rueckgabe: 'Ergebnis – diese Information erzeugt die Verarbeitung (Punkt = Ergebnis). Braucht ein Ziel: eine Variable oder eine weitere Verarbeitung.',
       signal: 'Direkt zwischen Bauteil und Verarbeitung. Bauteile sind keine Variablen.',
       global: 'Zwischen eigener Funktion und Variable, an Übergabe und Ergebnis vorbei. Braucht eine Begründung.',
       liste: 'Eine Funktion verändert eine übergebene Liste, auch ohne Ergebnispfeil.',
