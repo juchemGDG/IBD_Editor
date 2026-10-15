@@ -22,9 +22,9 @@ Notation und Pruefregeln folgen dem Konzept „Informationsfluss in der
 | Pfeil | Darstellung | Bedeutung |
 |---|---|---|
 | Uebergabewert | dunkel, schmal | was eine Verarbeitung benutzt |
-| Rueckgabewert | blau, breit, Punkt am Anfang | Rueckgabe (Python: `return`) – braucht ein Ziel |
+| Ergebnis | blau, breit, Punkt am Anfang | Ergebnis einer Verarbeitung (Zuweisung) oder Funktion (`return`) – braucht ein Ziel |
 | Bauteilsignal | orange | direkt zwischen Bauteil und Verarbeitung |
-| globaler Zugriff | gestrichelt | an Uebergabe und Rueckgabe vorbei – braucht eine Begruendung |
+| globaler Zugriff | gestrichelt | an Uebergabe und Ergebnis vorbei – braucht eine Begruendung |
 | veraenderte Liste | blau, breit, zwei Spitzen | Funktion veraendert eine uebergebene Liste |
 
 ## Funktionen
@@ -59,13 +59,13 @@ Darstellungskonvention (K) und Beschriftungen (B).
 |---|---|---|---|
 | `I02` | Fehler | 1 | Was eine Verarbeitung liefert, hat kein Ziel |
 | `I03` | Hinweis | 1 | Baustein ohne Pfeil / Variable wird nie benutzt |
-| `I05` | Fehler | 1 | Rueckgabewert beginnt nicht an einer Verarbeitung/Funktion |
+| `I05` | Fehler | 1 | Ergebnis beginnt nicht an einer Verarbeitung/Funktion |
 | `I10` | Fehler | 2 | Pfeil von Variable zu Variable ueber Funktionsgrenzen |
-| `I04` | Hinweis | 3 | In eine eigene Funktion kommt etwas hinein, nichts verlaesst sie (fehlt die Rueckgabe, in Python `return`?) |
-| `I06` | Fehler | 3 | Verarbeitung → Variable als Uebergabewert statt Rueckgabewert |
+| `I04` | Hinweis | 3 | In eine eigene Funktion kommt etwas hinein, nichts verlaesst sie (fehlt das Ergebnis, in Python `return`?) |
+| `I06` | Fehler | 3 | Verarbeitung → Variable als Uebergabewert statt Ergebnis |
 | `I15` | Fehler | 3 | „veraenderte Liste" an einer Variablen, die keine Liste ist |
 | `I16` | Fehler | 3 | „veraenderte Liste" ohne beteiligte Funktion |
-| `I17` | Hinweis | 3 | Rueckgabewert landet in einer Variablen derselben Funktion |
+| `I17` | Hinweis | 3 | Ergebnis einer Funktion landet in einer eigenen Variablen |
 | `I30` | Hinweis | 4 | globaler Zugriff: Begruendung verlangt |
 | `I31` | Fehler | 4 | gestrichelter Pfeil nicht zwischen eigener Funktion und Variable |
 | `I32` | Hinweis | 4 | gestrichelter Pfeil unnoetig (Festwert / eigene Variable) |
@@ -117,7 +117,7 @@ Kaesten und Pfeile. Python bleibt das Unterrichtsbeispiel.
 |---|---|---|---|---|
 | Hauptprogramm | `def main()` | `int main()` | `setup()` und `loop()` | `function main()` |
 | eigene Funktion | `def messen()` | `float messen()` | `float messen()` | `function messen()` |
-| Rueckgabewert | `return` | `return` | `return` | `return` |
+| Ergebnis einer Funktion | `return` | `return` | `return` | `return` |
 | veraenderte Liste | Liste als Argument | Array/Referenz | Array | Array |
 | Festwert | `MAX = 10` | `const`/`final` | `const`/`#define` | `const MAX = 10` |
 
@@ -218,7 +218,7 @@ Kennung `ibd-editor` statt `pap-editor`.
 ```
 
 `type`: `bauteil`, `verarbeitung`, `funktion`, `variable`, `zone` ·
-`kind`: `uebergabe`, `rueckgabe`, `signal`, `global`, `liste` ·
+`kind`: `uebergabe`, `rueckgabe` (= Ergebnis, Schluessel bleibt aus Kompatibilitaet), `signal`, `global`, `liste` ·
 `sa`/`ta`: Anschluss an Quelle/Ziel (Seite `l`/`r`/`t`/`b`, Lage 0…1).
 Welche Variable zu welcher Funktion gehoert, ergibt sich aus der Lage
 (Mittelpunkt im Kasten).

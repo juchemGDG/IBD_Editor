@@ -1,6 +1,6 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
   <!-- IBD-Editor-Logo: Mini-Informationsfluss (Bauteil -> Verarbeitung ->
-       Rückgabe in Variable -> Bauteil) im selben Stil wie PAP Editor /
+       Ergebnis in Variable -> Bauteil) im selben Stil wie PAP Editor /
        Notenchecker. Quelle für alle Icon-Dateien, erzeugt mit:
        python3 packaging/make_icons.py -->
   <defs>
@@ -31,7 +31,7 @@
     <path d="M368 322 H486" fill="none" stroke-width="30"/>
     <path d="M482 294 L520 322 L482 350 Z" stroke-width="14"/>
 
-    <!-- Rückgabewert: breit, Punkt am Anfang -->
+    <!-- Ergebnis: breit, Punkt am Anfang -->
     <circle cx="682" cy="438" r="30" stroke="none"/>
     <path d="M682 438 V556" fill="none" stroke-width="44"/>
     <path d="M644 552 L682 598 L720 552 Z" stroke-width="14"/>

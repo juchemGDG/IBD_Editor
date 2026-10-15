@@ -53,11 +53,11 @@ reset();
   arrow(s, adc, 'signal', 'Potential'); arrow(adc, w, 'rueckgabe', 'Messwert'); arrow(w, pr, 'uebergabe', 'Messwert'); arrow(pr, k, 'signal'); }
 check('Folie 29 Einstieg', []);
 
-// Folie 5 links: Rückgabewert ohne Ziel
+// Folie 5 links: Ergebnis ohne Ziel
 reset();
 { const s = node('bauteil', 'Sensor', 0, 0), adc = node('verarbeitung', 'adc.read()', 160, 0);
   arrow(s, adc, 'signal'); }
-check('Folie 5 Rückgabewert ohne Ziel', ['I02']);
+check('Folie 5 Ergebnis ohne Ziel', ['I02']);
 
 // Folie 4: messwert bleibt in der Funktion, hell bekommt nichts
 reset();

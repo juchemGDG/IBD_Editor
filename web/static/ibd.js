@@ -5,7 +5,7 @@
 // Schwesterprojekt zum PAP Editor. Notation und Prüfregeln folgen dem
 // Konzept "Informationsfluss in der µC-Programmierung":
 //   Bauteil · Verarbeitung · eigene Funktion · Variable (+ globale Zone)
-//   Übergabewert · Rückgabewert · Bauteilsignal · globaler Zugriff ·
+//   Übergabewert · Ergebnis · Bauteilsignal · globaler Zugriff ·
 //   veränderte Liste
 //
 // Die Zeichenfläche ist ein SVG. Dadurch ist der SVG-Export dieselbe
@@ -38,7 +38,7 @@ const NODE_ORDER = ['bauteil', 'verarbeitung', 'funktion', 'variable', 'zone'];
 const ARROW_KINDS = {
   uebergabe: { name: 'Übergabewert',     hint: 'dunkel, schmal',
                color: '#3C3C3C', width: 1.8, head: 10, half: 4.5 },
-  rueckgabe: { name: 'Rückgabewert',     hint: 'blau, breit, Punkt = Rückgabe (return)',
+  rueckgabe: { name: 'Ergebnis',          hint: 'blau, breit, Punkt = Ergebnis (Zuweisung oder return)',
                color: '#1F5F8B', width: 3.6, head: 13, half: 6.5, dot: 5.5, bold: true },
   signal:    { name: 'Bauteilsignal',    hint: 'orange, Bauteil ↔ Verarbeitung',
                color: '#FF8000', width: 2.2, head: 10, half: 5 },
@@ -746,8 +746,8 @@ const RULES = {
   I02: ['error',   '1', 'Ergebnis einer Verarbeitung hat kein Ziel'],
   I03: ['warning', '1', 'Baustein ohne Pfeil'],
   I04: ['warning', '3', 'eigene Funktion: etwas kommt an, nichts geht hinaus'],
-  I05: ['error',   '1', 'Rückgabewert mit falscher Quelle oder falschem Ziel'],
-  I06: ['error',   '3', 'Wert aus einer Verarbeitung in eine Variable ohne Rückgabewert'],
+  I05: ['error',   '1', 'Ergebnis mit falscher Quelle oder falschem Ziel'],
+  I06: ['error',   '3', 'Wert aus einer Verarbeitung in eine Variable ohne Ergebnispfeil'],
   I10: ['error',   '2', 'Pfeil von Variable zu Variable über Funktionsgrenzen'],
   I11: ['error',   'K', 'Variable außerhalb einer eigenen Funktion'],
   I12: ['error',   'K', 'Bauteil in einer eigenen Funktion'],
@@ -755,7 +755,7 @@ const RULES = {
   I14: ['warning', 'K', 'Baustein liegt auf einem Rand oder überdeckt einen anderen'],
   I15: ['error',   '3', 'veränderte Liste ohne Liste'],
   I16: ['error',   '3', 'veränderte Liste ohne Funktion'],
-  I17: ['warning', '3', 'Rückgabewert bleibt in der eigenen Funktion'],
+  I17: ['warning', '3', 'Ergebnis einer Funktion bleibt in ihr selbst'],
   I20: ['error',   'K', 'Bauteil mit falschem Pfeiltyp verbunden'],
   I21: ['error',   'K', 'Bauteil direkt mit Variable/Bauteil verbunden'],
   I22: ['error',   'K', 'Bauteilsignal ohne Bauteil'],
@@ -877,14 +877,14 @@ function evaluateInner(N, A) {
       F('I47', `In den Festwert ${shortName(t)} führt ein Pfeil. Ein Festwert ändert sich nie.`, [t.id], [a.id]);
 
     if (a.kind === 'rueckgabe') {
-      if (!proc(s)) F('I05', `Der Rückgabewert beginnt an der Variablen ${shortName(s)}. Nur eine Verarbeitung oder Funktion gibt etwas zurück (Python: return).`, ids, [a.id]);
-      else if (t.type === 'variable' && scope[t.id] === s.id) F('I17', `Der Rückgabewert von ${shortName(s)} landet in ${shortName(t)} – das ist eine Variable derselben Funktion. Ein Rückgabewert verlässt die Funktion.`, ids, [a.id]);
+      if (!proc(s)) F('I05', `Das Ergebnis beginnt an der Variablen ${shortName(s)}. Nur eine Verarbeitung oder Funktion liefert ein Ergebnis (bei einer Funktion: return).`, ids, [a.id]);
+      else if (t.type === 'variable' && scope[t.id] === s.id) F('I17', `Das Ergebnis von ${shortName(s)} landet in ${shortName(t)} – das ist eine Variable derselben Funktion. Das Ergebnis einer Funktion verlässt sie (return).`, ids, [a.id]);
     }
     if (a.kind === 'uebergabe') {
       if (proc(s) && t.type === 'variable')
-        F('I06', `Von ${shortName(s)} führt ein Übergabewert in die Variable ${shortName(t)}. Was eine Verarbeitung liefert, ist ein Rückgabewert (blau, Punkt = Rückgabe, in Python return).`, ids, [a.id]);
+        F('I06', `Von ${shortName(s)} führt ein Übergabewert in die Variable ${shortName(t)}. Was eine Verarbeitung liefert, ist ein Ergebnis (blau, Punkt am Anfang; bei einer Funktion return, sonst Zuweisung).`, ids, [a.id]);
       if (s.type === 'variable' && t.type === 'variable' && scope[s.id] && scope[t.id] && scope[s.id] !== scope[t.id])
-        F('I10', `Der Pfeil führt von ${shortName(s)} direkt zu ${shortName(t)} in einer anderen Funktion. Information wechselt die Funktion nur als Übergabewert hinein oder als Rückgabewert heraus.`, ids, [a.id]);
+        F('I10', `Der Pfeil führt von ${shortName(s)} direkt zu ${shortName(t)} in einer anderen Funktion. Information wechselt die Funktion nur als Übergabewert hinein oder als Ergebnis (return) heraus.`, ids, [a.id]);
     }
     if (a.kind === 'global') {
       const f = s.type === 'funktion' ? s : t.type === 'funktion' ? t : null;
@@ -892,7 +892,7 @@ function evaluateInner(N, A) {
       if (!f || !v) F('I31', `Ein gestrichelter Pfeil (globaler Zugriff) verbindet eine eigene Funktion mit einer Variablen – hier: ${shortName(s)} und ${shortName(t)}.`, ids, [a.id]);
       else if (isConst(v)) F('I32', `${shortName(v)} ist ein Festwert. Festwerte sind vom globalen Zugriff ausgenommen – ein normaler Pfeil genügt.`, ids, [a.id]);
       else if (scope[v.id] === f.id) F('I32', `${shortName(v)} liegt in ${shortName(f)} selbst. Dafür braucht es keinen globalen Zugriff.`, ids, [a.id]);
-      else F('I30', `Globaler Zugriff von ${shortName(f)} auf ${shortName(v)}: Begründe, warum hier kein Übergabewert oder Rückgabewert möglich ist.`, ids, [a.id]);
+      else F('I30', `Globaler Zugriff von ${shortName(f)} auf ${shortName(v)}: Begründe, warum hier kein Übergabewert oder Ergebnis möglich ist.`, ids, [a.id]);
     }
     if (a.kind === 'liste') {
       const vs = [s, t].filter(n => n.type === 'variable');
@@ -907,7 +907,7 @@ function evaluateInner(N, A) {
     if (n.type === 'verarbeitung') {
       if (!touched(n)) F('I03', `Die Verarbeitung ${shortName(n)} ist mit nichts verbunden.`, [n.id]);
       else if (!outg[n.id].length && !inc[n.id].some(a => a.kind === 'liste'))
-        F('I02', `Was ${shortName(n)} liefert, hat kein Ziel. Ein Rückgabewert braucht eine Variable oder eine weitere Verarbeitung – oder ein Bauteil, auf das gewirkt wird.`, [n.id]);
+        F('I02', `Was ${shortName(n)} liefert, hat kein Ziel. Ein Ergebnis braucht eine Variable oder eine weitere Verarbeitung – oder ein Bauteil, auf das gewirkt wird.`, [n.id]);
     } else if (n.type === 'funktion') {
       const vs = varsIn(n), vt = vs.reduce((k, v) => k + touched(v), 0);
       if (!touched(n) && !vt) F('I03', `Die eigene Funktion ${shortName(n)} ist mit nichts verbunden.`, [n.id]);
@@ -917,7 +917,7 @@ function evaluateInner(N, A) {
         const cross = A.filter(a => own.has(a.src) !== own.has(a.tgt));
         const comesIn = cross.some(a => own.has(a.tgt)), goesOut = cross.some(a => own.has(a.src) || a.kind === 'liste' || a.kind === 'global');
         if (comesIn && !goesOut)
-          F('I04', `In ${shortName(n)} kommt Information an, aber nichts verlässt die Funktion: kein Rückgabewert, kein Bauteilsignal, keine veränderte Liste. Fehlt die Rückgabe (Python: return)?`, [n.id]);
+          F('I04', `In ${shortName(n)} kommt Information an, aber nichts verlässt die Funktion: kein Ergebnis, kein Bauteilsignal, keine veränderte Liste. Fehlt das Ergebnis (return)?`, [n.id]);
       }
     } else if (!touched(n)) {
       F('I03', n.type === 'variable' ? `Die Variable ${shortName(n)} wird nie benutzt – kein Pfeil hinein, keiner heraus.` : `Das Bauteil ${shortName(n)} ist mit nichts verbunden.`, [n.id]);
@@ -1448,10 +1448,10 @@ function showHelp() {
       funktion: 'Selbst geschrieben (Python: def, C/Java: Typ und Name, JavaScript: function). Nur sie ist ein Gültigkeitsbereich: Nur in ihr stehen Variablen.',
       variable: 'Ein abgelegter Wert. Name und optional Rolle im Kasten; Listen mit [ ].',
       uebergabe: 'Jede Information, die eine Verarbeitung benutzt, kommt als Pfeil an.',
-      rueckgabe: 'Punkt am Anfang = Rückgabe (Python: return). Braucht ein Ziel: eine Variable oder eine weitere Verarbeitung.',
+      rueckgabe: 'Punkt am Anfang = Ergebnis einer Verarbeitung (Zuweisung) oder Funktion (return). Braucht ein Ziel: eine Variable oder eine weitere Verarbeitung.',
       signal: 'Direkt zwischen Bauteil und Verarbeitung. Bauteile sind keine Variablen.',
-      global: 'Zwischen eigener Funktion und Variable, an Übergabe und Rückgabe vorbei. Braucht eine Begründung.',
-      liste: 'Eine Funktion verändert eine übergebene Liste, auch ohne Rückgabe.',
+      global: 'Zwischen eigener Funktion und Variable, an Übergabe und Ergebnis vorbei. Braucht eine Begründung.',
+      liste: 'Eine Funktion verändert eine übergebene Liste, auch ohne Ergebnispfeil.',
     };
     let h = '';
     Object.keys(demo).forEach(t => {
