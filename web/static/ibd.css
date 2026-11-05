@@ -719,3 +719,7 @@ body.embed #btn-desktop { display: none; }
 .legend td:first-child { width: 96px; }
 
 body.embed #btn-desktop, body.desktop #btn-desktop { display: none; }
+
+/* Lizenz-Footer in der Hilfe */
+.footer-lizenz { margin-top: 18px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 12px; line-height: 1.5; color: #64748b; }
+.footer-lizenz a { color: #1d4ed8; }
